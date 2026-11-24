@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 class MainActivity : ComponentActivity(){
     override fun onCreate(savedInstanceState: Bundle?){
         super.onCreate(savedInstanceState)
+        loadData(this)
         // setContent tells Compose what to show on the screen
         setContent{
             MaterialTheme{
@@ -121,9 +122,10 @@ fun HomeScreen() {
                 if (selectedIndex != -1) {
                     val mood = moodOptions[selectedIndex]
                     // Add the new mood at the start of the history
-                    moodHistory.add(0, MoodEntry(mood.emoji, mood.label, note, 0))
+                    moodHistory.add(0, MoodEntry(mood.emoji, mood.label, note, System.currentTimeMillis()))
                     myMood = mood.emoji + " " + mood.label
                     note = ""
+                    saveData(context)
                     Toast.makeText(context, "Mood saved", Toast.LENGTH_SHORT).show()
                 }
             },

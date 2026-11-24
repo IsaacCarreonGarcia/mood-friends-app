@@ -13,11 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalContext
 
 // Second screen: the history of moods for the last week, month or year.
 class HistoryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Reads the saved data from the phone (happens only once)
+        loadData(this)
 
         /*
         Read the extra data that MainActivity sent with putExtra
@@ -44,6 +48,8 @@ fun HistoryScreen(startPeriod: String, onBack: () -> Unit) {
     // State: the period the user is looking at
     var period by remember { mutableStateOf(startPeriod) }
 
+    val context = LocalContext.current
+
     // "when" turns the period into a number of days
     val maxDays = when (period) {
         "Week" -> 7
@@ -54,8 +60,27 @@ fun HistoryScreen(startPeriod: String, onBack: () -> Unit) {
     // Build a new list with only the moods that are inside the chosen period
     val shown = mutableListOf<MoodEntry>()
     for (entry in moodHistory) {
-        if (entry.daysAgo < maxDays) {
+        if (entry.daysAgo() < maxDays) {
             shown.add(entry)
+        }
+    }
+
+    /*
+    Count how many times each mood appears in the shown list
+    the biggest is the highest count, starting at 1, so it is never divided by zero.
+     */
+    val counts = mutableListOf<Int>()
+    var biggest = 1
+    for (mood in moodOptions){
+        var count = 0
+        for (entry in shown) {
+            if (entry.label == mood.label) {
+                count++
+            }
+        }
+        counts.add(count)
+        if (count > biggest) {
+            biggest = count
         }
     }
 
@@ -90,6 +115,32 @@ fun HistoryScreen(startPeriod: String, onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(text = "Moods saved (last $period): ${shown.size}")
+        Spacer(modifier = Modifier.height(8.dp))
+        /*
+        The bar chart: one column for each mood, with a Box as the bar,
+        biggest is the highest count. It starts at 1, so we never divide by zero
+         */
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            for (i in 0..moodOptions.size - 1) {
+                val barHeight = counts[i] * 60 / biggest
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "${counts[i]}")
+                    Box(
+                        modifier = Modifier
+                            .width(28.dp)
+                            .height(barHeight.dp)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    Text(text = moodOptions[i].emoji, fontSize = 24.sp)
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -114,11 +165,18 @@ fun HistoryScreen(startPeriod: String, onBack: () -> Unit) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = entry.label, fontWeight = FontWeight.Bold)
+                            Text(text = daysText(entry.daysAgo()))
                             if (entry.note != "") {
                                 Text(text = entry.note)
                             }
                         }
-                        Text(text = daysText(entry.daysAgo))
+                        // Delete this mood from the list and save the change on the phone
+                        TextButton(onClick = {
+                            moodHistory.remove(entry)
+                            saveData(context)
+                        }) {
+                            Text(text = "Delete")
+                        }
                     }
                 }
             }
